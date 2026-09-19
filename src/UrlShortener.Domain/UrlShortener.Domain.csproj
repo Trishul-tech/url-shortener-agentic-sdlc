@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>UrlShortener.Domain</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Microsoft.NET.Sdk's implicit usings do not include System.Threading (only Sdk.Web's do),
+         but every interface here takes a CancellationToken - add it project-wide rather than
+         per-file. -->
+    <Using Include="System.Threading" />
+  </ItemGroup>
+</Project>
