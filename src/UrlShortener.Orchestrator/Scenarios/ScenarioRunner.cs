@@ -42,7 +42,7 @@ public static class ScenarioRunner
 
         Console.WriteLine($"Pipeline status: {result.Status}" + (result.SafeStopReason is null ? "" : $" ({result.SafeStopReason})"));
         Console.WriteLine($"Metrics: successRate={result.Metrics.SuccessRate:P0} retries={result.Metrics.RetryCount} " +
-                           $"rollbacks={result.Metrics.RollbackCount} replans={result.Metrics.ReplanCount} " +
+                           $"fallbacks={result.Metrics.FallbackCount} rollbacks={result.Metrics.RollbackCount} replans={result.Metrics.ReplanCount} " +
                            $"mttrMs={result.Metrics.MeanTimeToRecoveryMs?.ToString("F0") ?? "n/a"} latencyMs={result.Metrics.TotalLatencyMs:F0}");
         Console.WriteLine($"Artifacts written to {outputDir} (prefix '{slug}.*')");
         Console.WriteLine();

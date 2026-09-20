@@ -23,6 +23,7 @@ public sealed class MetricsCollector
     private int _retryCount;
     private int _rollbackCount;
     private int _replanCount;
+    private int _fallbackCount;
 
     public void StageStarted(StageId stage)
     {
@@ -57,6 +58,7 @@ public sealed class MetricsCollector
     public void RetryRecorded() { lock (_lock) _retryCount++; }
     public void RollbackRecorded() { lock (_lock) _rollbackCount++; }
     public void ReplanRecorded() { lock (_lock) _replanCount++; }
+    public void FallbackRecorded() { lock (_lock) _fallbackCount++; }
 
     public RunMetrics Snapshot()
     {
@@ -78,6 +80,7 @@ public sealed class MetricsCollector
                 RetryCount: _retryCount,
                 RollbackCount: _rollbackCount,
                 ReplanCount: _replanCount,
+                FallbackCount: _fallbackCount,
                 MeanTimeToRecoveryMs: mttrSamples.Count == 0 ? null : Math.Round(mttrSamples.Average(), 2));
         }
     }
@@ -92,4 +95,5 @@ public sealed record RunMetrics(
     int RetryCount,
     int RollbackCount,
     int ReplanCount,
+    int FallbackCount,
     double? MeanTimeToRecoveryMs);

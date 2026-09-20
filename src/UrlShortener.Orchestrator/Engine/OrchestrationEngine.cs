@@ -22,10 +22,12 @@ public enum GatePhase { Entry, Exit }
 /// agents over an explicit <see cref="DependencyGraph"/>, executing
 /// independent stages concurrently and dependent stages in sequence,
 /// enforcing human-approval checkpoints and policy guardrails as entry/exit
-/// gates, retrying transient stage failures within a bounded budget, rolling
-/// back and re-planning the affected subgraph when a stage exhausts its
-/// retries, and safe-stopping the whole run when a blocking guardrail or a
-/// rejected approval makes it unsafe to continue. Every decision is written
+/// gates, retrying transient stage failures within a bounded budget, trying
+/// a configured fallback strategy once a stage's retry budget is exhausted,
+/// rolling back and re-planning the affected subgraph if the fallback (or no
+/// fallback) still leaves the stage failed, and safe-stopping the whole run
+/// when a blocking guardrail or a rejected approval makes it unsafe to
+/// continue. Every decision is written
 /// to the <see cref="AuditLog"/> as it happens, so the trail is a byproduct
 /// of execution rather than something reconstructed after the fact.
 /// </summary>
@@ -197,15 +199,92 @@ public sealed class OrchestrationEngine
                 continue;
             }
 
-            // Retry budget exhausted: roll back if a target is configured, else fail the pipeline terminally.
+            // Retry budget exhausted: try a fallback strategy (a different
+            // approach, not another attempt at the same one) before rolling
+            // back or failing the pipeline terminally.
+            if (!state.FallbackUsed && _options.FallbackAgents.TryGetValue(id, out var fallbackAgent))
+            {
+                var fallbackSucceeded = await TryFallbackAsync(id, node, state, fallbackAgent, context, ct);
+                if (fallbackSucceeded == true)
+                    return;
+                if (fallbackSucceeded is null)
+                    return; // Fallback's own exit-gate check blocked and already safe-stopped/terminal'd the stage.
+                // Fallback ran and failed: fall through to the normal rollback-or-safe-stop decision below.
+            }
+
+            // Retry (and fallback, if any) exhausted: roll back if a target is configured, else fail the pipeline terminally.
             if (_options.RollbackTargets.TryGetValue(id, out var rollbackTarget) && TryRollback(id, rollbackTarget, context))
                 return;
 
             state.Status = StageStatus.FailedTerminal;
             _metrics.StageFailed(id, terminal: true);
-            TriggerSafeStop($"Stage {id} retry budget exhausted after {node.MaxRetries + 1} attempts, with no rollback path configured.");
+            var exhaustionDetail = state.FallbackUsed
+                ? $"Stage {id} retry budget exhausted after {node.MaxRetries + 1} attempts; fallback strategy also failed, with no rollback path configured."
+                : $"Stage {id} retry budget exhausted after {node.MaxRetries + 1} attempts, with no rollback path configured.";
+            TriggerSafeStop(exhaustionDetail);
             return;
         }
+    }
+
+    /// <summary>
+    /// Runs a stage's configured fallback agent once, after its primary
+    /// retry budget is exhausted. Returns true if the fallback succeeded
+    /// (stage is now Completed), false if it failed (caller should proceed
+    /// to rollback/safe-stop), or null if the fallback's own exit-gate
+    /// guardrail check blocked it (stage is already FailedTerminal and the
+    /// pipeline already safe-stopped).
+    /// </summary>
+    private async Task<bool?> TryFallbackAsync(
+        StageId id, StageNode node, StageRuntimeState state, IAgent fallbackAgent, PipelineExecutionContext context, CancellationToken ct)
+    {
+        state.FallbackUsed = true;
+        _metrics.FallbackRecorded();
+        _auditLog.Record(AuditEventType.StageFallbackInvoked, id, "engine",
+            $"Retry budget exhausted; invoking fallback strategy for stage {id} instead of rolling back or stopping immediately.");
+
+        AgentOutcome fallbackOutcome;
+        try
+        {
+            fallbackOutcome = await fallbackAgent.ExecuteAsync(context, state.Attempts, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            fallbackOutcome = AgentOutcome.Fail($"Fallback agent threw an unhandled exception: {ex.Message}");
+        }
+
+        // A degraded result still has to be safe: the exit gate applies to fallback output too.
+        var fallbackExitBlocked = EvaluateGuardrails(id, context, GatePhase.Exit);
+        if (fallbackExitBlocked is not null)
+        {
+            state.Status = StageStatus.FailedTerminal;
+            state.LastFailureReason = fallbackExitBlocked.Message;
+            _metrics.StageFailed(id, terminal: true);
+            TriggerSafeStop($"Blocking policy guardrail '{fallbackExitBlocked.GuardrailName}' on stage {id} (exit gate, fallback): {fallbackExitBlocked.Message}");
+            return null;
+        }
+
+        if (!fallbackOutcome.Success)
+        {
+            _auditLog.Record(AuditEventType.StageFailed, id, "engine",
+                $"Fallback strategy for stage {id} also failed: {fallbackOutcome.FailureReason}");
+            return false;
+        }
+
+        if (node.RequiresHumanApproval && !await RequestApprovalAsync(id, node, context, ct))
+        {
+            state.Status = StageStatus.FailedTerminal;
+            _metrics.StageFailed(id, terminal: true);
+            return null; // Rejection already triggered safe-stop inside RequestApprovalAsync.
+        }
+
+        state.Status = StageStatus.Completed;
+        state.LastFailureReason = null;
+        _metrics.StageSucceeded(id);
+        _auditLog.Record(AuditEventType.StageSucceeded, id, "engine", $"[fallback] {fallbackOutcome.Summary}");
+        context.RecordDecision(id, "FallbackSucceeded",
+            $"Primary strategy exhausted its retry budget; fallback strategy succeeded instead. {fallbackOutcome.Summary}",
+            "engine");
+        return true;
     }
 
     private GuardrailFinding? EvaluateGuardrails(StageId id, PipelineExecutionContext context, GatePhase phase)

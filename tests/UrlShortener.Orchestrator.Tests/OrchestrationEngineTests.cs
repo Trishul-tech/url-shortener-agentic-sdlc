@@ -75,7 +75,6 @@ public class OrchestrationEngineTests
 
         var implRuns = 0;
         var implAgent = new TestAgent(StageId.Implementation, _ => { implRuns++; return AgentOutcome.Ok("implemented"); });
-        // Fails while Implementation has only run once; succeeds after the rework re-execution.
         var testAgent = new TestAgent(StageId.IntegrationTesting, _ => implRuns <= 1 ? AgentOutcome.Fail("regression found") : AgentOutcome.Ok("fixed"));
 
         var agents = new Dictionary<StageId, IAgent> { [StageId.Implementation] = implAgent, [StageId.IntegrationTesting] = testAgent };
@@ -156,6 +155,63 @@ public class OrchestrationEngineTests
 
         result.Status.Should().Be(PipelineStatus.SafeStopped);
         result.SafeStopReason.Should().Contain("rejected");
+    }
+
+    
+    [Fact]
+    public async Task RunAsync_WhenRetriesExhausted_TriesFallbackAndSucceeds()
+    {
+        var graph = new DependencyGraph(new[] { new StageNode(StageId.Implementation, "Impl", Array.Empty<StageId>(), MaxRetries: 1) });
+        var primary = TestAgent.AlwaysFails(StageId.Implementation, "primary strategy cannot do it");
+        var fallback = TestAgent.AlwaysSucceeds(StageId.Implementation);
+        var agents = new Dictionary<StageId, IAgent> { [StageId.Implementation] = primary };
+        var options = new OrchestrationOptions
+        {
+            SimulatedWorkDelay = TimeSpan.Zero,
+            FallbackAgents = new Dictionary<StageId, IAgent> { [StageId.Implementation] = fallback },
+        };
+
+        var engine = new OrchestrationEngine(graph, agents, AutoApprove(), Array.Empty<IPolicyGuardrail>(), options);
+        var result = await engine.RunAsync(new PipelineExecutionContext("test"));
+
+        result.Status.Should().Be(PipelineStatus.Completed);
+        result.FinalStageStates[StageId.Implementation].Status.Should().Be(StageStatus.Completed);
+        primary.CallCount.Should().Be(2);
+        fallback.CallCount.Should().Be(1);
+        result.Metrics.RollbackCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenFallbackAlsoFails_FallsThroughToRollback()
+    {
+        var graph = new DependencyGraph(new[]
+        {
+            StageNode.Root(StageId.Implementation, "Implementation"),
+            new StageNode(StageId.IntegrationTesting, "Integration", new[] { StageId.Implementation }, MaxRetries: 0),
+        });
+
+        var implRuns = 0;
+        var implAgent = new TestAgent(StageId.Implementation, _ => { implRuns++; return AgentOutcome.Ok("implemented"); });
+        var testAgent = new TestAgent(StageId.IntegrationTesting, _ => implRuns <= 1 ? AgentOutcome.Fail("regression found") : AgentOutcome.Ok("fixed"));
+        var fallbackAgent = TestAgent.AlwaysFails(StageId.IntegrationTesting, "fallback strategy cannot recover it either");
+
+        var agents = new Dictionary<StageId, IAgent> { [StageId.Implementation] = implAgent, [StageId.IntegrationTesting] = testAgent };
+        var options = new OrchestrationOptions
+        {
+            SimulatedWorkDelay = TimeSpan.Zero,
+            FallbackAgents = new Dictionary<StageId, IAgent> { [StageId.IntegrationTesting] = fallbackAgent },
+            RollbackTargets = new Dictionary<StageId, StageId> { [StageId.IntegrationTesting] = StageId.Implementation },
+            MaxRollbacks = 1,
+        };
+
+        var engine = new OrchestrationEngine(graph, agents, AutoApprove(), Array.Empty<IPolicyGuardrail>(), options);
+        var result = await engine.RunAsync(new PipelineExecutionContext("test"));
+
+        result.Status.Should().Be(PipelineStatus.Completed);
+        fallbackAgent.CallCount.Should().Be(1);
+        result.Metrics.FallbackCount.Should().Be(1);
+        result.Metrics.RollbackCount.Should().Be(1);
+        result.Metrics.ReplanCount.Should().Be(1);
     }
 
     private sealed class AlwaysBlockGuardrail : IPolicyGuardrail

@@ -10,7 +10,7 @@ public enum AuditEventType
     StageEntryGateEvaluated, StageStarted, StageRetried, StageSucceeded, StageFailed,
     ApprovalRequested, ApprovalGranted, ApprovalRejected,
     GuardrailEvaluated, GuardrailBlocked,
-    StageRolledBack, ReplanTriggered
+    StageRolledBack, ReplanTriggered, StageFallbackInvoked
 }
 
 public sealed record AuditEvent(

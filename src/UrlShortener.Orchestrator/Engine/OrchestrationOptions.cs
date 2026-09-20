@@ -1,3 +1,4 @@
+using UrlShortener.Orchestrator.Agents;
 using UrlShortener.Orchestrator.Graph;
 
 namespace UrlShortener.Orchestrator.Engine;
@@ -12,6 +13,18 @@ public sealed class OrchestrationOptions
 {
     /// <summary>If a stage in this map exhausts its retries, the engine rolls back to the mapped stage instead of failing terminally.</summary>
     public IReadOnlyDictionary<StageId, StageId> RollbackTargets { get; init; } = new Dictionary<StageId, StageId>();
+
+    /// <summary>
+    /// If a stage in this map exhausts its retries, the engine tries this
+    /// fallback agent's degraded/alternate strategy once before rolling back
+    /// or safe-stopping. A fallback is distinct from a retry (a different
+    /// approach, not another attempt at the same one) and from a rollback
+    /// (no upstream/downstream re-planning - it's a local, one-shot
+    /// alternate path for this stage only). If the fallback also fails,
+    /// execution falls through to the normal rollback-or-safe-stop decision
+    /// exactly as if no fallback had been configured.
+    /// </summary>
+    public IReadOnlyDictionary<StageId, IAgent> FallbackAgents { get; init; } = new Dictionary<StageId, IAgent>();
 
     /// <summary>Bounds total rollbacks for the whole run, preventing an oscillating (retry -> rollback -> retry) loop from running forever.</summary>
     public int MaxRollbacks { get; init; } = 1;

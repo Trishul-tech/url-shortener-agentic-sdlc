@@ -25,12 +25,6 @@ metrics), not conflated with "did the CRUD app turn out well."
 
 Standard clean/onion architecture, dependency arrows point inward:
 
-UrlShortener.Api -> UrlShortener.Application -> UrlShortener.Domain
-| ^
-v |
-UrlShortener.Infrastructure --------------------------------
-
-
 - **Domain**: `ShortUrl` (aggregate root) and `ClickEvent` (append-only
   analytics record, deliberately *not* nested under `ShortUrl` so
   high-volume click writes never contend with the aggregate's optimistic
@@ -62,36 +56,7 @@ UrlShortener.Infrastructure --------------------------------
 | Random Base62 codes | Sequential/counter-based codes | Sequential codes let a caller enumerate every short URL in the system by incrementing an ID - an information-disclosure risk for a public redirect service. |
 | Hash the client IP, never store it raw | Store raw IP for richer geo-analytics | PII minimization. This exact trade-off is also the guardrail trigger in the **ambiguous** scenario - see `docs/scenarios/ambiguous.md`. |
 | Analytics write is best-effort (swallowed on failure) | Fail the redirect if the click can't be recorded | A redirect is the product's core promise; analytics is secondary. A slow/broken analytics write must never turn into a broken redirect. |
-| SQLite + `EnsureCreated()` for this prototype | EF Core migrations | No `dotnet ef` tooling was available in the environment this was authored in (see root `README.md`). `EnsureCreated()` gets a reviewer to a working app with zero extra steps; migrations are the documented next step before any real deployment - see § Data & Migrations. |
-| In-memory cache | Redis from day one | Matches the prototype's single-instance scope. `ICacheService` is the seam - swapping the `MemoryCacheService` registration for a Redis-backed implementation is a one-line DI change, no application code changes. |
-
-### Scale limitations (honestly stated, not hidden)
-
-This is a prototype, not a production deployment, and it's sized
-accordingly:
-- Single instance only - the in-memory cache and SQLite file don't survive
-  a multi-instance deployment. Redis + Postgres/SQL Server are the
-  documented upgrade path.
-- No auth/authz beyond an optional `ownerId` string comparison. A real
-  deployment needs real authentication before `ownerId` means anything.
-- Rate limiting is per-instance and IP-keyed; behind a shared load balancer
-  this needs to move to a distributed limiter or an API gateway.
-
-## 3. The orchestrator: agentic SDLC engine
-
-This is the part being evaluated as the "critical differentiator," so it
-gets the most detail.
-
-### 3.1 Orchestration model
-
-A **dependency graph** (`Graph/DependencyGraph.cs`) of eight SDLC stages,
-validated acyclic (Kahn's algorithm) at construction:
-
-Requirements → Architecture → Implementation ─┬→ UnitTesting ────────┐
-├→ IntegrationTesting ─┤
-├→ SecurityReview ─────┼→ ReleaseReadiness
-└→ Documentation ──────┘
-
+| SQLite + `EnsureCreated()` for this prototype | EF Core migrations | No `dotnet ef` tooling was available in the environment this was authored in (see root `README.md`). `EnsureCreated()` gets a reviewer to a working app with zero extra steps;
 
 Requirements and Architecture are strictly sequential (each needs the
 prior stage's output). Once Implementation completes, **UnitTesting,
@@ -159,12 +124,25 @@ out. §3.6 adds a second, independent layer around every stage attempt:
 policy-guardrail entry/exit checks, which catch an unsafe precondition or
 an unsafe output even when no human approval is configured for that stage.
 
-### 3.4 Retries, rollback, and dynamic re-planning
+### 3.4 Retries, fallback, rollback, and dynamic re-planning
 
 Each stage has a bounded per-stage retry budget (`MaxRetries`). On failure,
 the engine retries in place up to that budget (`Engine/OrchestrationEngine.ExecuteStageAsync`).
-If the budget is exhausted:
+If the budget is exhausted, the engine has two further, distinct controls
+before it gives up on the stage - fallback, then rollback:
 
+- If the stage has a configured **fallback agent**
+  (`OrchestrationOptions.FallbackAgents`), the engine tries it exactly once
+  (`OrchestrationEngine.TryFallbackAsync`). This is deliberately not "retry
+  again" - it's a different strategy for the same stage (e.g. a simpler or
+  more conservative agent), tried locally, with no upstream/downstream
+  re-planning. Its output still passes through the same exit-gate guardrail
+  check as a primary attempt, and a success still goes through the stage's
+  human-approval checkpoint if one is configured - a degraded result isn't
+  exempt from either control. The audit log tags a fallback's success with
+  `[fallback]` so the trail shows it wasn't the primary strategy that
+  succeeded. If the fallback also fails, the engine falls through to
+  rollback/safe-stop exactly as if no fallback had been configured.
 - If the stage has a configured **rollback target**
   (`OrchestrationOptions.RollbackTargets`, e.g. "IntegrationTesting rolls
   back to Implementation"), the engine resets that target stage *and every
@@ -251,7 +229,7 @@ Two complementary records come out of every run:
 
 **`MetricsCollector`** (`Observability/MetricsCollector.cs`) tracks exactly
 the reliability metrics called out in the assignment: success rate,
-retry count, rollback count, replan count, mean time to recovery (elapsed
+retry count, fallback count, rollback count, replan count, mean time to recovery (elapsed
 time between a stage's first failure and its eventual success, including
 across a rollback+rework cycle), and total end-to-end latency. `ScenarioRunner`
 writes all of this to `artifacts/sample-runs/` per scenario run.
