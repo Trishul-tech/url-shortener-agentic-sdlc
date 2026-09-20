@@ -10,7 +10,7 @@ This repo has two things in it, on purpose:
 
 1. **`src/UrlShortener.*`** — the URL shortener itself: a clean-architecture
    .NET 8 Web API (Domain / Application / Infrastructure / Api) with SQLite,
-   caching, rate limiting, and analytics.
+   caching, rate limiting, analytics, and SSRF protection on user-supplied target URLs.
 2. **`src/UrlShortener.Orchestrator`** — the agentic orchestration engine
    that *built and validates changes to* the URL shortener. It's a
    standalone console app with its own dependency graph, retry/rollback
@@ -36,7 +36,7 @@ four genuine issues that inspection alone had missed (a couple of missing
 bug, and — the two substantive ones — a mismatch between the custom-alias
 validator and the domain object's own length limit, and a SQLite/EF Core
 limitation where `DateTimeOffset` range comparisons can't be translated to
-SQL). All four are fixed, and the full test suite (54 tests across all four
+SQL). All four are fixed, and the full test suite (66 tests across all four
 projects) now passes. See `docs/testing-limitations-tradeoffs.md` for the
 complete list of what's tested, what isn't, and the trade-offs made.
 

@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddSingleton<ICodeGenerator, Base62CodeGenerator>();
         services.AddSingleton<ICustomAliasPolicy, DefaultCustomAliasPolicy>();
         services.AddSingleton<ICacheService, MemoryCacheService>();
+        services.AddSingleton<IDnsResolver, SystemDnsResolver>();
 
         return services;
     }

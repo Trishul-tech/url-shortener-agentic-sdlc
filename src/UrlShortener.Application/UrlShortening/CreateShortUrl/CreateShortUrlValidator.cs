@@ -1,15 +1,22 @@
 using FluentValidation;
+using UrlShortener.Application.Security;
 
 namespace UrlShortener.Application.UrlShortening.CreateShortUrl;
 
 public sealed class CreateShortUrlValidator : AbstractValidator<CreateShortUrlCommand>
 {
-    public CreateShortUrlValidator()
+    private readonly SsrfGuard _ssrfGuard;
+
+    public CreateShortUrlValidator(SsrfGuard ssrfGuard)
     {
+        _ssrfGuard = ssrfGuard;
+
         RuleFor(x => x.TargetUrl)
             .NotEmpty()
             .MaximumLength(2048)
-            .Must(BeAbsoluteHttpUrl).WithMessage("TargetUrl must be an absolute http(s) URL.");
+            .Must(BeAbsoluteHttpUrl).WithMessage("TargetUrl must be an absolute http(s) URL.")
+            .MustAsync((url, ct) => _ssrfGuard.IsSafePublicTargetAsync(url, ct)).WithMessage(
+                "TargetUrl must not resolve to a private, loopback, link-local, or cloud-metadata address (SSRF protection).");
 
         RuleFor(x => x.CustomAlias)
             .Matches("^[A-Za-z0-9_-]{3,32}$")

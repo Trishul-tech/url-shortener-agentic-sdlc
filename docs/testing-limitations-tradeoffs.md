@@ -91,6 +91,8 @@ re-derive engine behavior from a big end-to-end test.
    from within a single stage's own execution path." This has been traced
    by hand, not stress-tested with concurrent rollback races.
 
+8. **SSRF protection resolves DNS once, at validation time - not at redirect time.** `CreateShortUrlValidator` checks the target URL's resolved addresses via `SsrfGuard`/`IDnsResolver` when the short URL is created, blocking private/loopback/link-local/cloud-metadata targets (including `169.254.169.254`). This is a point-in-time check: DNS is not re-validated on every redirect, so a target whose DNS record is repointed to an internal address after creation would not be caught retroactively (a classic TOCTOU gap for any DNS-based SSRF guard). Production hardening would add periodic re-validation or resolve-and-pin at redirect time too - documented here rather than silently left out.
+
 ## Trade-offs (explicit, not implicit)
 
 | Trade-off | Choice made | What was given up |
