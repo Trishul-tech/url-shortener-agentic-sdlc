@@ -25,12 +25,11 @@ metrics), not conflated with "did the CRUD app turn out well."
 
 Standard clean/onion architecture, dependency arrows point inward:
 
-```
-UrlShortener.Api  ->  UrlShortener.Application  ->  UrlShortener.Domain
-       |                                                    ^
-       v                                                    |
-UrlShortener.Infrastructure  --------------------------------
-```
+UrlShortener.Api -> UrlShortener.Application -> UrlShortener.Domain
+| ^
+v |
+UrlShortener.Infrastructure --------------------------------
+
 
 - **Domain**: `ShortUrl` (aggregate root) and `ClickEvent` (append-only
   analytics record, deliberately *not* nested under `ShortUrl` so
@@ -88,12 +87,11 @@ gets the most detail.
 A **dependency graph** (`Graph/DependencyGraph.cs`) of eight SDLC stages,
 validated acyclic (Kahn's algorithm) at construction:
 
-```
 Requirements → Architecture → Implementation ─┬→ UnitTesting ────────┐
-                                               ├→ IntegrationTesting ─┤
-                                               ├→ SecurityReview ─────┼→ ReleaseReadiness
-                                               └→ Documentation ──────┘
-```
+├→ IntegrationTesting ─┤
+├→ SecurityReview ─────┼→ ReleaseReadiness
+└→ Documentation ──────┘
+
 
 Requirements and Architecture are strictly sequential (each needs the
 prior stage's output). Once Implementation completes, **UnitTesting,
@@ -156,6 +154,11 @@ end to end, but three checkpoints in the standard graph cannot be crossed
 without a human decision, and the engine enforces that structurally (it's
 not something an agent could skip by choosing to).
 
+This is one layer of entry/exit gating - graph readiness in, human approval
+out. §3.6 adds a second, independent layer around every stage attempt:
+policy-guardrail entry/exit checks, which catch an unsafe precondition or
+an unsafe output even when no human approval is configured for that stage.
+
 ### 3.4 Retries, rollback, and dynamic re-planning
 
 Each stage has a bounded per-stage retry budget (`MaxRetries`). On failure,
@@ -192,11 +195,26 @@ gracefully (no work is abandoned mid-write); no new stage is scheduled
 afterward. The reason is recorded on the `PipelineResult` and in the audit
 log, so a returning engineer sees exactly why the run stopped and where.
 
-### 3.6 Policy guardrails (security, compliance, change control)
+### 3.6 Policy guardrails (security, compliance, change control) and entry/exit gates
 
-`Governance/PolicyGuardrail.cs` defines `IPolicyGuardrail.Evaluate(stage, artifacts)`,
-evaluated after every stage execution, independent of whether the stage's
-own agent thinks it succeeded. Three are implemented:
+`Governance/PolicyGuardrail.cs` defines `IPolicyGuardrail.Evaluate(stage, artifacts)`.
+The engine calls it at two points around every stage attempt
+(`OrchestrationEngine.GatePhase`):
+
+- **Entry gate** - evaluated immediately before the agent runs, against
+  whatever is already in the artifact map (upstream stages' output, or this
+  stage's own artifacts from a prior attempt). This is what stops a stage
+  from starting at all when a precondition is already known to be unsafe,
+  rather than only catching it after wasting an execution.
+- **Exit gate** - evaluated immediately after the agent finishes, against
+  the artifacts that attempt just produced. This is what catches a stage's
+  own output being unsafe before the pipeline accepts it and moves on.
+
+Both call the same guardrail set; only the timing (and therefore what's
+in the artifact map to inspect) differs. The audit log tags every guardrail
+event with which gate produced it (`[Entry gate]` / `[Exit gate]`), so the
+distinction is visible in the trail, not just in code. Three guardrails are
+implemented:
 
 - `SecretScanningGuardrail` - flags hardcoded-credential-looking strings in
   generated code artifacts (Blocking).

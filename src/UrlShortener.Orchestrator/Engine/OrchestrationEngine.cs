@@ -7,6 +7,17 @@ using UrlShortener.Orchestrator.Observability;
 namespace UrlShortener.Orchestrator.Engine;
 
 /// <summary>
+/// Which side of a stage's execution a guardrail check runs on. Entry gates
+/// run before the agent does any work, so a precondition already known to be
+/// unsafe (e.g. an unresolved blocking finding carried over from a prior
+/// attempt) stops the stage before wasting an execution; exit gates run
+/// after the agent finishes, so the stage's own output can be evaluated
+/// before it is accepted. Both call the same guardrail set - only the
+/// timing (and therefore what's in the artifact map to inspect) differs.
+/// </summary>
+public enum GatePhase { Entry, Exit }
+
+/// <summary>
 /// The agentic SDLC orchestration engine. Coordinates a set of per-stage
 /// agents over an explicit <see cref="DependencyGraph"/>, executing
 /// independent stages concurrently and dependent stages in sequence,
@@ -117,6 +128,20 @@ public sealed class OrchestrationEngine
         while (true)
         {
             state.Attempts++;
+
+            // Entry gate: re-check guardrails against whatever is already in the
+            // artifact map (upstream stages' output, or this stage's own prior
+            // attempt on a retry) before spending an execution on this attempt.
+            var entryBlocked = EvaluateGuardrails(id, context, GatePhase.Entry);
+            if (entryBlocked is not null)
+            {
+                state.Status = StageStatus.FailedTerminal;
+                state.LastFailureReason = entryBlocked.Message;
+                _metrics.StageFailed(id, terminal: true);
+                TriggerSafeStop($"Blocking policy guardrail '{entryBlocked.GuardrailName}' on stage {id} (entry gate): {entryBlocked.Message}");
+                return;
+            }
+
             var agent = _agents[id];
 
             AgentOutcome outcome;
@@ -131,13 +156,14 @@ public sealed class OrchestrationEngine
                 outcome = AgentOutcome.Fail($"Agent threw an unhandled exception: {ex.Message}");
             }
 
-            var blocked = EvaluateGuardrails(id, context);
-            if (blocked is not null)
+            // Exit gate: evaluate the stage's own output before accepting it.
+            var exitBlocked = EvaluateGuardrails(id, context, GatePhase.Exit);
+            if (exitBlocked is not null)
             {
                 state.Status = StageStatus.FailedTerminal;
-                state.LastFailureReason = blocked.Message;
+                state.LastFailureReason = exitBlocked.Message;
                 _metrics.StageFailed(id, terminal: true);
-                TriggerSafeStop($"Blocking policy guardrail '{blocked.GuardrailName}' on stage {id}: {blocked.Message}");
+                TriggerSafeStop($"Blocking policy guardrail '{exitBlocked.GuardrailName}' on stage {id} (exit gate): {exitBlocked.Message}");
                 return;
             }
 
@@ -182,7 +208,7 @@ public sealed class OrchestrationEngine
         }
     }
 
-    private GuardrailFinding? EvaluateGuardrails(StageId id, PipelineExecutionContext context)
+    private GuardrailFinding? EvaluateGuardrails(StageId id, PipelineExecutionContext context, GatePhase phase)
     {
         foreach (var guardrail in _guardrails)
         {
@@ -190,11 +216,11 @@ public sealed class OrchestrationEngine
             if (finding is null) continue;
 
             _auditLog.Record(AuditEventType.GuardrailEvaluated, id, guardrail.Name,
-                $"[{finding.Severity}] {finding.Message}");
+                $"[{phase} gate] [{finding.Severity}] {finding.Message}");
 
             if (finding.Severity == GuardrailSeverity.Blocking)
             {
-                _auditLog.Record(AuditEventType.GuardrailBlocked, id, guardrail.Name, finding.Message);
+                _auditLog.Record(AuditEventType.GuardrailBlocked, id, guardrail.Name, $"[{phase} gate] {finding.Message}");
                 return finding;
             }
         }

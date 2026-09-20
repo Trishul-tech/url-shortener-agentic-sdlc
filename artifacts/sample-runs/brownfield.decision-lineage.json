@@ -1,125 +1,125 @@
 [
   {
-    "TimestampUtc": "2026-09-20T18:56:03.9872548+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.5877639+00:00",
     "Stage": "Requirements",
     "Decision": "Normalized",
     "Rationale": "Normalized problem statement: Fix the double-click-count bug under concurrent redirects and remove the underlying cache race; no behavior change to the public API contract.",
     "DecidedBy": "RequirementsAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:03.9873247+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.587815+00:00",
     "Stage": "Requirements",
     "Decision": "Approved",
     "Rationale": "Bug confirmed in production analytics; scope is a targeted fix, approved.",
     "DecidedBy": "eng-lead"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0182172+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.618531+00:00",
     "Stage": "Architecture",
     "Decision": "DesignProposed",
     "Rationale": "Root cause: under a burst, two concurrent requests for the same code can both miss the cache before it is populated, so both fall through to the repository and both record a click. Fix: populate the cache and record the click as a single atomic step per request, keyed so a second concurrent miss reuses the first request\u0027s in-flight result instead of issuing its own repository read.",
     "DecidedBy": "ArchitectureAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.018282+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.6185774+00:00",
     "Stage": "Architecture",
     "Decision": "Approved",
     "Rationale": "Request-coalescing is the right level of complexity for a single-instance deployment.",
     "DecidedBy": "eng-lead"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0487368+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.649603+00:00",
     "Stage": "Implementation",
     "Decision": "Implemented",
     "Rationale": "Touched files: src/UrlShortener.Application/UrlShortening/ResolveShortUrl/ResolveShortUrlHandler.cs, src/UrlShortener.Infrastructure/Services/MemoryCacheService.cs",
     "DecidedBy": "ImplementationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0796299+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.6811516+00:00",
     "Stage": "Documentation",
     "Decision": "DocumentationDrafted",
     "Rationale": "CHANGELOG updated: fixed duplicate click counting under concurrent load; no public API changes. Added a note to architecture.md about the request-coalescing pattern for future cache work.",
     "DecidedBy": "DocumentationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0796729+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.6812073+00:00",
     "Stage": "SecurityReview",
     "Decision": "Reviewed",
     "Rationale": "Reviewed 2 file(s) for injection risk, authZ, and PII handling. No PII handling concerns noted.",
     "DecidedBy": "SecurityReviewAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0798835+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.6813469+00:00",
     "Stage": "IntegrationTesting",
     "Decision": "IntegrationTestsFailed",
     "Rationale": "Load test: 50 concurrent redirects for the same code recorded 63 click events (expected 50) - race still reproduces.",
     "DecidedBy": "IntegrationTestingAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.0799847+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.6814077+00:00",
     "Stage": "UnitTesting",
     "Decision": "UnitTestsPassed",
     "Rationale": "22/22 passed",
     "DecidedBy": "UnitTestingAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.1115968+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.7119174+00:00",
     "Stage": "IntegrationTesting",
     "Decision": "IntegrationTestsFailed",
     "Rationale": "Load test: 50 concurrent redirects for the same code recorded 63 click events (expected 50) - race still reproduces.",
     "DecidedBy": "IntegrationTestingAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.1187095+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.7183465+00:00",
     "Stage": "IntegrationTesting",
     "Decision": "RolledBack",
     "Rationale": "Retry budget exhausted; rolled back to Implementation and re-planned 6 downstream stage(s).",
     "DecidedBy": "engine"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.1584728+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.7586394+00:00",
     "Stage": "Implementation",
     "Decision": "Implemented",
     "Rationale": "Touched files: src/UrlShortener.Application/UrlShortening/ResolveShortUrl/ResolveShortUrlHandler.cs, src/UrlShortener.Infrastructure/Services/MemoryCacheService.cs",
     "DecidedBy": "ImplementationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.1891786+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.789283+00:00",
     "Stage": "Documentation",
     "Decision": "DocumentationDrafted",
     "Rationale": "CHANGELOG updated: fixed duplicate click counting under concurrent load; no public API changes. Added a note to architecture.md about the request-coalescing pattern for future cache work.",
     "DecidedBy": "DocumentationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.1892301+00:00",
-    "Stage": "UnitTesting",
-    "Decision": "UnitTestsPassed",
-    "Rationale": "22/22 passed",
-    "DecidedBy": "UnitTestingAgent"
-  },
-  {
-    "TimestampUtc": "2026-09-20T18:56:04.1892337+00:00",
-    "Stage": "IntegrationTesting",
-    "Decision": "IntegrationTestsPassed",
-    "Rationale": "50 concurrent redirects for the same code record exactly 50 click events, Deactivate \u002B reactivate returns the correct target on the next redirect",
-    "DecidedBy": "IntegrationTestingAgent"
-  },
-  {
-    "TimestampUtc": "2026-09-20T18:56:04.1892493+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.7892996+00:00",
     "Stage": "SecurityReview",
     "Decision": "Reviewed",
     "Rationale": "Reviewed 2 file(s) for injection risk, authZ, and PII handling. No PII handling concerns noted.",
     "DecidedBy": "SecurityReviewAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.2198266+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.789325+00:00",
+    "Stage": "UnitTesting",
+    "Decision": "UnitTestsPassed",
+    "Rationale": "22/22 passed",
+    "DecidedBy": "UnitTestingAgent"
+  },
+  {
+    "TimestampUtc": "2026-09-20T20:24:26.7893354+00:00",
+    "Stage": "IntegrationTesting",
+    "Decision": "IntegrationTestsPassed",
+    "Rationale": "50 concurrent redirects for the same code record exactly 50 click events, Deactivate \u002B reactivate returns the correct target on the next redirect",
+    "DecidedBy": "IntegrationTestingAgent"
+  },
+  {
+    "TimestampUtc": "2026-09-20T20:24:26.820783+00:00",
     "Stage": "ReleaseReadiness",
     "Decision": "ReadyForRelease",
     "Rationale": "All release gates satisfied: tests green, security reviewed, docs drafted.",
     "DecidedBy": "ReleaseReadinessAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T18:56:04.219905+00:00",
+    "TimestampUtc": "2026-09-20T20:24:26.8208297+00:00",
     "Stage": "ReleaseReadiness",
     "Decision": "Approved",
     "Rationale": "Regression reproduced then verified fixed under load; approved to ship.",
