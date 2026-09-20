@@ -51,7 +51,7 @@ re-derive engine behavior from a big end-to-end test.
    SQLite's EF Core provider cannot translate to SQL (it only translates
    equality comparisons on that type) - fixed by filtering by `ShortUrlId`
    in SQL and applying the date-range filter in memory. All four are fixed
-   and the full suite (52 tests) passes.
+   and the full suite (54 tests) passes.
 2. **`ResolveShortUrlHandler`'s cache-then-repository path is plausibly
    racy under real concurrent load**, in exactly the way the brownfield
    scenario's narrative describes fixing (two concurrent misses can both

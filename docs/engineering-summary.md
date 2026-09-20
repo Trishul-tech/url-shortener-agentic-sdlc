@@ -79,8 +79,7 @@ The full, itemized list (compile status, the plausibly-racy handler the
 brownfield scenario's narrative is modeled on, single-instance scale,
 auth, scripted-vs-production governance, scheduling model) is in
 `docs/testing-limitations-tradeoffs.md` and is written to be read, not
-skimmed past - in particular item 1 (this solution has not been compiled,
-and why) and item 2 (the honest relationship between the brownfield
+skimmed past - in particular item 1 (how this solution was authored with AI assistance and then actually compiled, tested, and debugged on a real machine - including the four real bugs that surfaced and were fixed) and item 2 (the honest relationship between the brownfield
 scenario's narrative and this repo's actual current code) are the two
 most important caveats for a reviewer to internalize before judging
 correctness.
