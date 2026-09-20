@@ -79,6 +79,7 @@ try
     app.MapUrlEndpoints();
     app.MapAnalyticsEndpoints();
     app.MapAppHealthEndpoints();
+app.MapOrchestratorEndpoints();
 
     // Prototype uses EnsureCreated for a zero-friction first run (no EF migration
     // tooling was available in the environment this was authored in). For a real

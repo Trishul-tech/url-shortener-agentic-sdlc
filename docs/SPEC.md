@@ -29,6 +29,15 @@ this document states *what* is built, precisely, as a reference.
 
 Full request/response contracts: `src/UrlShortener.Api/Contracts`, and live via Swagger (`/swagger`, Development only).
 
+### 2.5 Orchestrator run inspection (read-only)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/v1/orchestrator/runs` | None | List which scenario runs have artifacts available |
+| `GET` | `/api/v1/orchestrator/runs/{scenario}` | None | Metrics, stage states, and decision lineage for that scenario's last run |
+
+Serves the `artifacts/sample-runs/` files that `MetricsCollector`, `AuditLog`, and `DecisionLineage` already write per scenario. This is read-only inspection of completed runs, not a live control API - see `docs/testing-limitations-tradeoffs.md` for what a real run-control API would still need (starting a run over HTTP, live status polling, approve/reject over HTTP).
+
 ### 2.2 Validation rules (Create)
 
 - `targetUrl`: required, absolute http/https URL, must pass the SSRF guard (2.3).
