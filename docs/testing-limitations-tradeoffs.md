@@ -68,10 +68,17 @@ re-derive engine behavior from a big end-to-end test.
 3. **Single-instance scale only** - in-memory cache, SQLite file, IP-keyed
    in-process rate limiting. Documented explicitly in
    `docs/architecture.md` § Scale limitations, not hidden.
-4. **No real authentication.** `ownerId` is a caller-supplied string
-   compared for equality - it prevents accidental cross-owner edits, not
-   malicious ones. A real deployment needs real auth before this field
-   means anything security-wise.
+4. **Optional API-key authentication, not full per-user auth.** `ApiKeyFilter`
+   gates the Create and Deactivate endpoints behind an `ApiKey`
+   configuration value - opt-in and unset by default, so local development
+   and the test suite need zero setup (`ApiKeyFilterTests` covers both the
+   gated and ungated paths). This stops an anonymous caller from creating
+   or deactivating links once a deployer sets the key, but it is a single
+   shared secret, not per-user identity: `ownerId` is still a
+   caller-supplied string compared for equality, so it prevents accidental
+   cross-owner edits, not malicious ones from anyone who holds the API
+   key. A real deployment needs real per-user auth (OAuth2/JWT) before
+   `ownerId` means anything security-wise on its own.
 5. **The orchestrator's approval and guardrail scripts are demo scripts.**
    `ScriptedApprovalProvider` and the three `IPolicyGuardrail`
    implementations are deliberately simple and cover exactly what the

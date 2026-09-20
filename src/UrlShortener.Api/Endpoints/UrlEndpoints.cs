@@ -5,6 +5,7 @@ using UrlShortener.Api.Middleware;
 using UrlShortener.Application.UrlShortening.CreateShortUrl;
 using UrlShortener.Application.UrlShortening.DeactivateShortUrl;
 using UrlShortener.Application.UrlShortening.ResolveShortUrl;
+using UrlShortener.Api.Middleware;
 
 namespace UrlShortener.Api.Endpoints;
 
@@ -31,7 +32,8 @@ public static class UrlEndpoints
         .Produces<CreateShortUrlResponse>(StatusCodes.Status201Created)
         .Produces<ProblemResponse>(StatusCodes.Status400BadRequest)
         .Produces<ProblemResponse>(StatusCodes.Status409Conflict)
-        .RequireRateLimiting("create");
+        .RequireRateLimiting("create")
+            .AddEndpointFilter<ApiKeyFilter>();
 
         group.MapDelete("/{code}", async (string code, string? ownerId, ISender sender, CancellationToken ct) =>
         {
@@ -41,7 +43,8 @@ public static class UrlEndpoints
         .WithName("DeactivateShortUrl")
         .WithSummary("Deactivate a short URL so it no longer redirects.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces<ProblemResponse>(StatusCodes.Status404NotFound);
+        .Produces<ProblemResponse>(StatusCodes.Status404NotFound)
+        .AddEndpointFilter<ApiKeyFilter>();
 
         // Redirect lives at the root, not under /api, since it's the public-facing short link surface.
         app.MapGet("/{code}", async (string code, HttpContext http, ISender sender, CancellationToken ct) =>
