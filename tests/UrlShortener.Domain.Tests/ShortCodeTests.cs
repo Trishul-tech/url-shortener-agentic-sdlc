@@ -11,6 +11,8 @@ public class ShortCodeTests
     [InlineData("abc123")]
     [InlineData("AZaz09")]
     [InlineData("A1b2C3d4")]
+    [InlineData("with-dash")]     // custom aliases may contain hyphens
+    [InlineData("with_underscore")] // custom aliases may contain underscores
     public void Create_WithValidCandidate_Succeeds(string candidate)
     {
         var code = ShortCode.Create(candidate);
@@ -18,9 +20,9 @@ public class ShortCodeTests
     }
 
     [Theory]
-    [InlineData("ab")]           // too short
+    [InlineData("ab")]           // too short (below MinLength of 3)
     [InlineData("has space")]     // invalid characters
-    [InlineData("has-dash")]      // invalid characters
+    [InlineData("has#hash")]      // invalid characters
     [InlineData("")]
     public void Create_WithInvalidCandidate_Throws(string candidate)
     {

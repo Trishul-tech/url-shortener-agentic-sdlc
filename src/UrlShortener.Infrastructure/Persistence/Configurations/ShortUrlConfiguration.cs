@@ -23,7 +23,7 @@ public sealed class ShortUrlConfiguration : IEntityTypeConfiguration<ShortUrl>
         builder.Property(x => x.OwnerId).HasMaxLength(128);
         builder.HasIndex(x => x.OwnerId);
 
-        builder.Property(x => x.Version).IsRowVersion();
+        builder.Property(x => x.Version);
 
         builder.Property(x => x.CreatedAtUtc).IsRequired();
     }

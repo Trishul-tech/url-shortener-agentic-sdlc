@@ -16,7 +16,7 @@ public sealed class SecurityReviewAgent : IAgent
     public Task<AgentOutcome> ExecuteAsync(PipelineExecutionContext context, int attempt, CancellationToken ct)
     {
         var files = context.GetArtifact<IReadOnlyList<string>>("code_artifacts") ?? Array.Empty<string>();
-        var exposesRawIp = context.GetArtifact<bool>("exposes_raw_ip") ?? false;
+        context.TryGetArtifact<bool>("exposes_raw_ip", out var exposesRawIp);
 
         var notes = $"Reviewed {files.Count} file(s) for injection risk, authZ, and PII handling. " +
                     (exposesRawIp ? "Flagged raw-IP handling for guardrail evaluation." : "No PII handling concerns noted.");

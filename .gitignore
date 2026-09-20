@@ -6,5 +6,4 @@ obj/
 .vs/
 .vscode/
 *.user
-artifacts/sample-runs/*.json
-artifacts/sample-runs/*.jsonl
+test-output.txt

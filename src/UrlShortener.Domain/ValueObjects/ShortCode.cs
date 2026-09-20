@@ -9,8 +9,8 @@ namespace UrlShortener.Domain.ValueObjects;
 /// </summary>
 public sealed partial class ShortCode : IEquatable<ShortCode>
 {
-    public const int MinLength = 4;
-    public const int MaxLength = 12;
+    public const int MinLength = 3;
+    public const int MaxLength = 32;
 
     public string Value { get; }
 
@@ -25,7 +25,7 @@ public sealed partial class ShortCode : IEquatable<ShortCode>
             throw new InvalidTargetUrlException(candidate, $"short code length must be between {MinLength} and {MaxLength}");
 
         if (!AllowedPattern().IsMatch(candidate))
-            throw new InvalidTargetUrlException(candidate, "short code must be alphanumeric (Base62)");
+            throw new InvalidTargetUrlException(candidate, "short code must be alphanumeric, underscore, or hyphen");
 
         return new ShortCode(candidate);
     }
@@ -33,7 +33,9 @@ public sealed partial class ShortCode : IEquatable<ShortCode>
     /// <summary>Bypasses validation for values already known-good (e.g. loaded from the database).</summary>
     public static ShortCode FromTrusted(string value) => new(value);
 
-    [GeneratedRegex("^[A-Za-z0-9]+$")]
+    // Matches CreateShortUrlValidator's custom-alias pattern so a value that
+    // passes API-layer validation can never fail domain-layer construction.
+    [GeneratedRegex("^[A-Za-z0-9_-]+$")]
     private static partial Regex AllowedPattern();
 
     public bool Equals(ShortCode? other) => other is not null && Value == other.Value;
