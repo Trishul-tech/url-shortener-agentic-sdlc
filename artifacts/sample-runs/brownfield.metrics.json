@@ -1,5 +1,5 @@
 {
-  "TotalLatencyMs": 286.4765,
+  "TotalLatencyMs": 269.7292,
   "StagesAttempted": 13,
   "StagesSucceeded": 12,
   "StagesFailedTerminally": 0,
@@ -8,5 +8,5 @@
   "RollbackCount": 1,
   "ReplanCount": 1,
   "FallbackCount": 0,
-  "MeanTimeToRecoveryMs": 122.98
+  "MeanTimeToRecoveryMs": 108
 }

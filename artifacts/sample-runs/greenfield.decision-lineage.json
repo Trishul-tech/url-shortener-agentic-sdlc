@@ -1,76 +1,76 @@
 [
   {
-    "TimestampUtc": "2026-09-20T21:55:36.2538883+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.2932296+00:00",
     "Stage": "Requirements",
     "Decision": "Normalized",
     "Rationale": "Normalized problem statement: Add an endpoint that returns a QR code image (PNG) encoding the short URL for a given code.",
     "DecidedBy": "RequirementsAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.260855+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.2998723+00:00",
     "Stage": "Requirements",
     "Decision": "Approved",
     "Rationale": "Clear, well-scoped requirement.",
     "DecidedBy": "eng-lead"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.2938168+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.3364256+00:00",
     "Stage": "Architecture",
     "Decision": "DesignProposed",
     "Rationale": "Add GET /api/v1/urls/{code}/qrcode; new QrCodeService (QRCoder) generates PNG on demand; reuse ICacheService to cache rendered images by code; no schema changes required.",
     "DecidedBy": "ArchitectureAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.2942468+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.3370528+00:00",
     "Stage": "Architecture",
     "Decision": "Approved",
     "Rationale": "Design is minimal and reuses existing caching.",
     "DecidedBy": "eng-lead"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.3249822+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.3680716+00:00",
     "Stage": "Implementation",
     "Decision": "Implemented",
     "Rationale": "Touched files: src/UrlShortener.Infrastructure/Services/QrCodeService.cs, src/UrlShortener.Api/Endpoints/QrCodeEndpoints.cs",
     "DecidedBy": "ImplementationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.3716336+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.4151207+00:00",
     "Stage": "Documentation",
     "Decision": "DocumentationDrafted",
     "Rationale": "README \u002B OpenAPI updated: new GET /api/v1/urls/{code}/qrcode endpoint, response content-type image/png, 404/410 error semantics documented to match the existing redirect endpoint.",
     "DecidedBy": "DocumentationAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.3721831+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.4156564+00:00",
     "Stage": "IntegrationTesting",
     "Decision": "IntegrationTestsPassed",
     "Rationale": "GET /qrcode returns 200 image/png for an active code, GET /qrcode returns 404 for an unknown code, GET /qrcode returns 410 for an expired code",
     "DecidedBy": "IntegrationTestingAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.372392+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.4161283+00:00",
     "Stage": "SecurityReview",
     "Decision": "Reviewed",
     "Rationale": "Reviewed 2 file(s) for injection risk, authZ, and PII handling. No PII handling concerns noted.",
     "DecidedBy": "SecurityReviewAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.4168245+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.4610053+00:00",
     "Stage": "UnitTesting",
     "Decision": "UnitTestsPassed",
     "Rationale": "18/18 passed",
     "DecidedBy": "UnitTestingAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.4527706+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.5122605+00:00",
     "Stage": "ReleaseReadiness",
     "Decision": "ReadyForRelease",
     "Rationale": "All release gates satisfied: tests green, security reviewed, docs drafted.",
     "DecidedBy": "ReleaseReadinessAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:55:36.4528166+00:00",
+    "TimestampUtc": "2026-09-20T22:54:02.5123048+00:00",
     "Stage": "ReleaseReadiness",
     "Decision": "Approved",
     "Rationale": "All gates green; ship it.",
