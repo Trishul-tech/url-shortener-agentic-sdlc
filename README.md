@@ -22,6 +22,33 @@ See `docs/architecture.md` for how the two relate, and `docs/scenarios/` for
 the three required scenarios (greenfield, brownfield, ambiguous) walked
 through in detail.
 
+## Architecture at a glance
+
+```mermaid
+flowchart TD
+    A[Requirements] --> B[Architecture]
+    B --> C[Implementation]
+    C --> D[UnitTesting]
+    C --> E[IntegrationTesting]
+    C --> F[SecurityReview]
+    C --> G[Documentation]
+    D --> H[ReleaseReadiness]
+    E --> H
+    F --> H
+    G --> H
+    style A fill:#dbeafe
+    style B fill:#dbeafe
+    style H fill:#dcfce7
+```
+
+Requirements and Architecture run sequentially and require human approval.
+Once Implementation finishes, UnitTesting, IntegrationTesting,
+SecurityReview, and Documentation all run concurrently - this is the
+non-linear, fan-out/fan-in execution the assignment calls for, not a
+straight-line pipeline. ReleaseReadiness is the synchronization point: it
+only starts once every parallel branch has finished. See
+`docs/architecture.md` for the full model, including retry/fallback/
+rollback/safe-stop control flow and a second diagram of that logic.
 ## A note on how this was built
 
 This solution was authored with AI assistance (Claude) and then reviewed,
