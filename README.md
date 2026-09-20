@@ -36,7 +36,7 @@ four genuine issues that inspection alone had missed (a couple of missing
 bug, and — the two substantive ones — a mismatch between the custom-alias
 validator and the domain object's own length limit, and a SQLite/EF Core
 limitation where `DateTimeOffset` range comparisons can't be translated to
-SQL). All four are fixed, and the full test suite (66 tests across all four
+SQL). All four are fixed, and the full test suite (68 tests across all four
 projects) now passes. See `docs/testing-limitations-tradeoffs.md` for the
 complete list of what's tested, what isn't, and the trade-offs made.
 
