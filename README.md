@@ -49,6 +49,59 @@ straight-line pipeline. ReleaseReadiness is the synchronization point: it
 only starts once every parallel branch has finished. See
 `docs/architecture.md` for the full model, including retry/fallback/
 rollback/safe-stop control flow and a second diagram of that logic.
+### Two systems, one repo
+
+```mermaid
+flowchart LR
+    subgraph Product[URL Shortener product]
+        Api --> App[Application]
+        App --> Dom[Domain]
+        Infra[Infrastructure] --> Dom
+    end
+    subgraph Orch[Agentic SDLC Orchestrator]
+        Engine --> Agents
+        Engine --> Governance
+        Engine --> Observability
+    end
+    Orch -. builds and validates .-> Product
+    style Dom fill:#dcfce7
+    style Engine fill:#dbeafe
+```
+
+The product (top) is a normal layered .NET service. The orchestrator
+(bottom) is a separate, general-purpose SDLC engine that happens to be
+demonstrated against this product's codebase - it does not import or
+depend on the product's assemblies.
+
+### Retry, fallback, rollback, and safe-stop
+
+```mermaid
+flowchart TD
+    Start([Stage attempt]) --> Entry{Entry gate<br/>guardrail}
+    Entry -- blocked --> SafeStop1[Safe-stop]
+    Entry -- ok --> Run[Agent executes]
+    Run --> Exit{Exit gate<br/>guardrail}
+    Exit -- blocked --> SafeStop2[Safe-stop]
+    Exit -- ok --> Success{Agent<br/>succeeded?}
+    Success -- yes --> Approval{Human approval<br/>required?}
+    Success -- no --> Retry{Retries left?}
+    Retry -- yes --> Run
+    Retry -- no --> Fallback{Fallback agent<br/>configured?}
+    Fallback -- yes, not yet tried --> FallbackRun[Fallback agent executes once]
+    FallbackRun --> Exit
+    Fallback -- no, or already tried --> Rollback{Rollback target<br/>configured?}
+    Rollback -- yes --> RollbackAction[Reset target + downstream<br/>subgraph, re-plan]
+    Rollback -- no --> SafeStop3[Safe-stop]
+    Approval -- approved --> Done([Stage completed])
+    Approval -- rejected --> SafeStop4[Safe-stop]
+    Approval -- not required --> Done
+```
+
+Retry (same strategy, in place) is tried first, up to the stage's budget.
+If exhausted, fallback (a different strategy, tried exactly once) runs
+next. If that also fails, or no fallback is configured, the engine rolls
+back to the nearest configured ancestor and re-plans its downstream
+subgraph. If no rollback target exists, the pipeline safe-stops.
 ## A note on how this was built
 
 This solution was authored with AI assistance (Claude) and then reviewed,
