@@ -288,3 +288,59 @@ one-line swap, not a refactor.
 - Give `IApprovalProvider` a real transport (Slack/Teams/email webhook)
   for the `Deferred` decision path, which today is implemented but unused
   by any scripted scenario.
+## 6. Diagrams
+
+### Orchestration graph and control flow
+
+```mermaid
+flowchart TD
+    A[Requirements] --> B[Architecture]
+    B --> C[Implementation]
+    C --> D[UnitTesting]
+    C --> E[IntegrationTesting]
+    C --> F[SecurityReview]
+    C --> G[Documentation]
+    D --> H[ReleaseReadiness]
+    E --> H
+    F --> H
+    G --> H
+    style A fill:#dbeafe
+    style B fill:#dbeafe
+    style H fill:#dcfce7
+```
+
+Requirements and Architecture run sequentially. Once Implementation
+completes, UnitTesting, IntegrationTesting, SecurityReview, and
+Documentation run concurrently (bounded parallelism). ReleaseReadiness is
+the synchronization point - it cannot start until all four branches reach
+a terminal state.
+
+### Stage execution: retry, fallback, rollback, safe-stop
+
+```mermaid
+flowchart TD
+    Start([Stage attempt]) --> Entry{Entry gate<br/>guardrail}
+    Entry -- blocked --> SafeStop1[Safe-stop]
+    Entry -- ok --> Run[Agent executes]
+    Run --> Exit{Exit gate<br/>guardrail}
+    Exit -- blocked --> SafeStop2[Safe-stop]
+    Exit -- ok --> Success{Agent<br/>succeeded?}
+    Success -- yes --> Approval{Human approval<br/>required?}
+    Success -- no --> Retry{Retries left?}
+    Retry -- yes --> Run
+    Retry -- no --> Fallback{Fallback agent<br/>configured?}
+    Fallback -- yes, not yet tried --> FallbackRun[Fallback agent executes once]
+    FallbackRun --> Exit
+    Fallback -- no, or already tried --> Rollback{Rollback target<br/>configured?}
+    Rollback -- yes --> RollbackAction[Reset target + downstream<br/>subgraph, re-plan]
+    Rollback -- no --> SafeStop3[Safe-stop]
+    Approval -- approved --> Done([Stage completed])
+    Approval -- rejected --> SafeStop4[Safe-stop]
+    Approval -- not required --> Done
+```
+
+Retry (same strategy, in place) is tried first, up to the stage's budget.
+If exhausted, fallback (a different strategy, tried exactly once) runs
+next. If that also fails, or no fallback is configured, the engine rolls
+back to the nearest configured ancestor and re-plans its downstream
+subgraph. If no rollback target exists, the pipeline safe-stops.
