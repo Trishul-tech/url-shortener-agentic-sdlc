@@ -27,10 +27,14 @@ re-derive engine behavior from a big end-to-end test.
   `ResolveShortUrlHandler` implementation is race-free under real
   concurrent load. It plausibly has the same class of race the brownfield
   scenario describes fixing (elsewhere) - see the honest caveat below.
-- **No test against a real LLM-backed `IAgent`.** All agent tests use the
-  deterministic simulated agents described in `docs/architecture.md` §3.8.
-  The `IAgent` interface is exercised thoroughly; a real network-calling
-  implementation of it is not, because none exists in this repo.
+- **No test against the live Anthropic network endpoint.** `Agents/AnthropicAgent.cs`
+  is a real, working `IAgent` implementation that calls the Anthropic
+  Messages API, and `AnthropicAgentTests` exercises its success and
+  failure paths - but against a faked `HttpMessageHandler`, not the real
+  network, so `dotnet test` stays fast and hermetic with no API key
+  required. The only genuinely untested path is the live HTTP call itself;
+  running `dotnet run --project src/UrlShortener.Orchestrator` with
+  `ANTHROPIC_API_KEY` set exercises that for real, on demand.
 - **No mutation testing / property-based testing.** Standard example-based
   xUnit tests only.
 

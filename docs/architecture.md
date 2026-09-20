@@ -258,6 +258,8 @@ a live LLM API. This was a conscious choice, not a shortcut:
   live model calls to be a legitimate demonstration of the orchestration
   model.
 
+This seam is not just theoretical: ` Agents/AnthropicAgent.cs ` is a real, tested ` IAgent ` implementation that calls the live Anthropic Messages API, covered by ` AnthropicAgentTests ` (which fakes the HTTP layer so the test suite stays hermetic - see ` docs/testing-limitations-tradeoffs.md `). It is not wired into any of the three required scenarios, which stay scripted and deterministic for reproducible review, but ` Program.cs ` will run one real call through it - Requirements stage, real network, real model output - if an ` ANTHROPIC_API_KEY ` environment variable is set, so the seam is demonstrably not just a paper interface.
+
 ## 4. Data & Migrations
 
 The prototype calls `AppDbContext.Database.EnsureCreated()` on startup
