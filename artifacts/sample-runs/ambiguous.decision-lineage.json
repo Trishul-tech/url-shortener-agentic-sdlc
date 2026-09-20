@@ -1,34 +1,34 @@
 [
   {
-    "TimestampUtc": "2026-09-20T21:17:47.2319951+00:00",
+    "TimestampUtc": "2026-09-20T21:55:36.873821+00:00",
     "Stage": "Requirements",
     "Decision": "Normalized",
     "Rationale": "Normalized problem statement (pending clarification): Make the analytics better.",
     "DecidedBy": "RequirementsAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:17:47.232311+00:00",
+    "TimestampUtc": "2026-09-20T21:55:36.8745541+00:00",
     "Stage": "Requirements",
     "Decision": "Approved",
     "Rationale": "Clarified scope with the requester.",
     "DecidedBy": "product-owner"
   },
   {
-    "TimestampUtc": "2026-09-20T21:17:47.2627412+00:00",
+    "TimestampUtc": "2026-09-20T21:55:36.9050894+00:00",
     "Stage": "Architecture",
     "Decision": "DesignProposed",
     "Rationale": "Add per-country click breakdown to the analytics endpoint. To maximize geolocation accuracy, persist the raw client IP address on each ClickEvent (in addition to the existing hash) so a batch job can resolve country server-side. (scoped per clarification: Add per-country breakdown of clicks to the analytics endpoint using IP geolocation. Everything else (\u0027better\u0027) is out of scope for this change.)",
     "DecidedBy": "ArchitectureAgent"
   },
   {
-    "TimestampUtc": "2026-09-20T21:17:47.2628914+00:00",
+    "TimestampUtc": "2026-09-20T21:55:36.905284+00:00",
     "Stage": "Architecture",
     "Decision": "Approved",
     "Rationale": "No script entry; default-approved for demo purposes.",
     "DecidedBy": "auto-approver"
   },
   {
-    "TimestampUtc": "2026-09-20T21:17:47.2938997+00:00",
+    "TimestampUtc": "2026-09-20T21:55:36.9367877+00:00",
     "Stage": "Implementation",
     "Decision": "Implemented",
     "Rationale": "Touched files: src/UrlShortener.Domain/Entities/ClickEvent.cs, src/UrlShortener.Application/Analytics/GetUrlAnalytics/GetUrlAnalyticsHandler.cs",
