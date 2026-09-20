@@ -1,5 +1,7 @@
 # URL Shortener + Agentic SDLC Orchestrator
 
+![CI](https://github.com/Trishul-tech/url-shortener-agentic-sdlc/actions/workflows/ci.yml/badge.svg) ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg) ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)
+
 A URL shortener service (core APIs, analytics, reliability features) plus an
 agentic orchestration layer that coordinates its own SDLC — requirements,
 architecture, implementation, testing, documentation, and release readiness —
