@@ -25,6 +25,7 @@ reviewer should read the code in if reading top-to-bottom.
   over SQLite, with caching, rate limiting, validation, and structured
   logging.
 - **Agentic orchestration engine**: `src/UrlShortener.Orchestrator` -
+- **Live orchestrator control API**: `src/UrlShortener.Api/Endpoints/OrchestratorEndpoints.cs` plus `src/UrlShortener.Api/Orchestration/HttpApprovalProvider.cs` - `POST /api/v1/orchestrator/runs/{scenario}` starts a real run of the same engine over HTTP, and `POST .../live/{runId}/approve`/`reject` resolve its approval gates from a genuine HTTP caller instead of a script, writing fresh artifacts to `artifacts/live-runs/` (gitignored). See `docs/SPEC.md` 2.5.
   dependency graph + execution engine + agents + governance (approval
   gates, policy guardrails) + observability (audit log, decision lineage,
   reliability metrics), plus three runnable, deterministic scenarios.
@@ -37,7 +38,7 @@ reviewer should read the code in if reading top-to-bottom.
   showing decomposition, orchestration, and validation as required), and
   `docs/testing-limitations-tradeoffs.md`.
 - **Generated run artifacts** (produced by `dotnet run --project src/UrlShortener.Orchestrator`,
-  not checked in pre-generated - see below): per-scenario audit trail
+  checked in as reproducible reference artifacts): per-scenario audit trail
   (JSON Lines), decision lineage (JSON), final stage states (JSON), and
   reliability metrics (JSON) in `artifacts/sample-runs/`.
 
