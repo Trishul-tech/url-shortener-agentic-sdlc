@@ -308,34 +308,52 @@ public sealed class OrchestrationEngine
 
     private async Task<bool> RequestApprovalAsync(StageId id, StageNode node, PipelineExecutionContext context, CancellationToken ct)
     {
-        var summary = context.GetArtifact<string>($"{id}:approval_summary") ?? $"Approval requested for stage {id}.";
-        var risk = context.GetArtifact<string>($"{id}:risk_level") ?? "Medium";
+        const int maxRevisions = 3;
+        var revisionCount = 0;
 
-        var request = new ApprovalRequest(id, summary, risk, ApprovalContextFor(id, context));
-        _auditLog.Record(AuditEventType.ApprovalRequested, id, "engine", summary);
-
-        var response = await _approvalProvider.RequestApprovalAsync(request, ct);
-
-        switch (response.Decision)
+        while (true)
         {
-            case ApprovalDecision.Approved:
-                _auditLog.Record(AuditEventType.ApprovalGranted, id, response.RespondedBy, response.Rationale ?? "Approved.");
-                if (response.Clarifications is not null)
-                    foreach (var kv in response.Clarifications)
-                        context.SetArtifact(kv.Key, kv.Value);
-                context.RecordDecision(id, "Approved", response.Rationale ?? "Approved.", response.RespondedBy);
-                return true;
+            var summary = context.GetArtifact<string>($"{id}:approval_summary") ?? $"Approval requested for stage {id}.";
+            var risk = context.GetArtifact<string>($"{id}:risk_level") ?? "Medium";
 
-            case ApprovalDecision.Rejected:
-                _auditLog.Record(AuditEventType.ApprovalRejected, id, response.RespondedBy, response.Rationale ?? "Rejected.");
-                context.RecordDecision(id, "Rejected", response.Rationale ?? "Rejected.", response.RespondedBy);
-                TriggerSafeStop($"Human approval rejected at stage {id}: {response.Rationale}");
-                return false;
+            var request = new ApprovalRequest(id, summary, risk, ApprovalContextFor(id, context));
+            _auditLog.Record(AuditEventType.ApprovalRequested, id, "engine", summary);
 
-            default: // Deferred
-                _states[id].Status = StageStatus.AwaitingApproval;
-                context.RecordDecision(id, "Deferred", response.Rationale ?? "Deferred.", response.RespondedBy);
-                return false;
+            var response = await _approvalProvider.RequestApprovalAsync(request, ct);
+
+            switch (response.Decision)
+            {
+                case ApprovalDecision.Approved:
+                    _auditLog.Record(AuditEventType.ApprovalGranted, id, response.RespondedBy, response.Rationale ?? "Approved.");
+                    if (response.Clarifications is not null)
+                        foreach (var kv in response.Clarifications)
+                            context.SetArtifact(kv.Key, kv.Value);
+                    context.RecordDecision(id, "Approved", response.Rationale ?? "Approved.", response.RespondedBy);
+                    return true;
+
+                case ApprovalDecision.Rejected:
+                    _auditLog.Record(AuditEventType.ApprovalRejected, id, response.RespondedBy, response.Rationale ?? "Rejected.");
+                    context.RecordDecision(id, "Rejected", response.Rationale ?? "Rejected.", response.RespondedBy);
+                    TriggerSafeStop($"Human approval rejected at stage {id}: {response.Rationale}");
+                    return false;
+
+                default: // Deferred: revise-and-retry with feedback, bounded so a caller cannot stall the pipeline forever
+                    revisionCount++;
+                    if (response.Clarifications is not null)
+                        foreach (var kv in response.Clarifications)
+                            context.SetArtifact(kv.Key, kv.Value);
+                    context.RecordDecision(id, "Deferred", response.Rationale ?? "Deferred.", response.RespondedBy);
+
+                    if (revisionCount > maxRevisions)
+                    {
+                        _states[id].Status = StageStatus.AwaitingApproval;
+                        TriggerSafeStop($"Human approval deferred at stage {id} more than {maxRevisions} times without resolution; safe-stopping.");
+                        return false;
+                    }
+
+                    _states[id].Status = StageStatus.AwaitingApproval;
+                    continue;
+            }
         }
     }
 

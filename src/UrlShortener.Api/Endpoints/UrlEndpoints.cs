@@ -5,7 +5,6 @@ using UrlShortener.Api.Middleware;
 using UrlShortener.Application.UrlShortening.CreateShortUrl;
 using UrlShortener.Application.UrlShortening.DeactivateShortUrl;
 using UrlShortener.Application.UrlShortening.ResolveShortUrl;
-using UrlShortener.Api.Middleware;
 
 namespace UrlShortener.Api.Endpoints;
 

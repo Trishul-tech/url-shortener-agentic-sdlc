@@ -44,9 +44,9 @@ public sealed class HttpApprovalProvider : IApprovalProvider
         }
     }
 
-    public bool TryResolve(ApprovalDecision decision, string respondedBy, string rationale)
+    public bool TryResolve(ApprovalDecision decision, string respondedBy, string rationale, IReadOnlyDictionary<string, string>? clarifications = null)
     {
-        return _pending?.TrySetResult(new ApprovalResponse(decision, respondedBy, rationale)) ?? false;
+        return _pending?.TrySetResult(new ApprovalResponse(decision, respondedBy, rationale, clarifications)) ?? false;
     }
 }
 

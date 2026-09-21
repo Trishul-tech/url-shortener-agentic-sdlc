@@ -72,4 +72,20 @@ public class HttpApprovalProviderTests
         Assert.Equal(ApprovalDecision.Rejected, response.Decision);
         Assert.Equal("timeout", response.RespondedBy);
     }
+
+    [Fact]
+    public async Task RequestApprovalAsync_ResolvedWithClarifications_CarriesThemThrough()
+    {
+        var provider = new HttpApprovalProvider();
+        var requestTask = provider.RequestApprovalAsync(SampleRequest(), CancellationToken.None);
+
+        await Task.Delay(20);
+        var clarifications = new Dictionary<string, string> { ["requirements:ctx:feedback"] = "please clarify edge cases" };
+        provider.TryResolve(ApprovalDecision.Deferred, "trishul", "needs more detail", clarifications);
+
+        var response = await requestTask;
+        Assert.Equal(ApprovalDecision.Deferred, response.Decision);
+        Assert.NotNull(response.Clarifications);
+        Assert.Equal("please clarify edge cases", response.Clarifications!["requirements:ctx:feedback"]);
+    }
 }

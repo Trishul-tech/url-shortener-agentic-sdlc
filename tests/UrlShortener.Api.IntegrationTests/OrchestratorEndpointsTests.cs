@@ -157,6 +157,29 @@ public class OrchestratorEndpointsTests : IClassFixture<CustomWebApplicationFact
     private static bool HasPendingApproval(JsonElement body) =>
         body.TryGetProperty("pendingApproval", out var pending) && pending.ValueKind == JsonValueKind.Object;
 
+    [Fact]
+    public async Task PostRun_RevisedAtFirstGate_LoopsBackForNewApproval()
+    {
+        var postResponse = await _client.PostAsync("/api/v1/orchestrator/runs/greenfield", null);
+        postResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var postBody = await ReadJsonAsync(postResponse);
+        var runId = postBody.GetProperty("runId").GetString()!;
+
+        await PollUntilAsync("greenfield", runId, HasPendingApproval);
+
+        var revise = await _client.PostAsJsonAsync($"/api/v1/orchestrator/runs/greenfield/live/{runId}/revise",
+            new { respondedBy = "tester", rationale = "needs more detail", clarifications = new Dictionary<string, string> { ["requirements:ctx:feedback"] = "clarify edge cases" } });
+        revise.StatusCode.Should().Be(HttpStatusCode.OK);
+        var reviseBody = await ReadJsonAsync(revise);
+        reviseBody.GetProperty("decision").GetString().Should().Be("Deferred");
+
+        var afterRevise = await PollUntilAsync("greenfield", runId, HasPendingApproval);
+        afterRevise.GetProperty("status").GetString().Should().Be("Running");
+
+        var approve = await _client.PostAsJsonAsync($"/api/v1/orchestrator/runs/greenfield/live/{runId}/approve", new { respondedBy = "tester" });
+        approve.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     private async Task<JsonElement> PollUntilAsync(string scenario, string runId, Func<JsonElement, bool> condition)
     {
         for (var i = 0; i < 50; i++)

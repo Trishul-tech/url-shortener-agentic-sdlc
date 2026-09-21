@@ -143,6 +143,9 @@ public static class OrchestratorEndpoints
         group.MapPost("/runs/{scenario}/live/{runId}/reject", (string scenario, string runId, ApprovalDecisionRequest? body) =>
             ResolveApproval(scenario, runId, ApprovalDecision.Rejected, body));
 
+        group.MapPost("/runs/{scenario}/live/{runId}/revise", (string scenario, string runId, ApprovalDecisionRequest? body) =>
+            ResolveApproval(scenario, runId, ApprovalDecision.Deferred, body));
+
         return app;
     }
 
@@ -156,10 +159,15 @@ public static class OrchestratorEndpoints
 
         var respondedBy = string.IsNullOrWhiteSpace(body?.RespondedBy) ? "http-caller" : body!.RespondedBy!;
         var rationale = string.IsNullOrWhiteSpace(body?.Rationale)
-            ? (decision == ApprovalDecision.Approved ? "Approved via HTTP." : "Rejected via HTTP.")
+            ? decision switch
+            {
+                ApprovalDecision.Approved => "Approved via HTTP.",
+                ApprovalDecision.Rejected => "Rejected via HTTP.",
+                _ => "Revised via HTTP."
+            }
             : body!.Rationale!;
 
-        var resolved = state.ApprovalProvider.TryResolve(decision, respondedBy, rationale);
+        var resolved = state.ApprovalProvider.TryResolve(decision, respondedBy, rationale, body?.Clarifications);
         return resolved
             ? Results.Ok(new { runId, decision = decision.ToString(), resolved = true })
             : Results.Conflict(new { runId, resolved = false, message = "No approval is currently pending for this run." });
@@ -225,4 +233,4 @@ public static class OrchestratorEndpoints
     }
 }
 
-public sealed record ApprovalDecisionRequest(string? RespondedBy, string? Rationale);
+public sealed record ApprovalDecisionRequest(string? RespondedBy, string? Rationale, IReadOnlyDictionary<string, string>? Clarifications = null);
