@@ -12,7 +12,7 @@ namespace UrlShortener.Orchestrator.Scenarios;
 /// </summary>
 public static class GreenfieldScenario
 {
-    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build()
+    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build(IApprovalProvider? approvalProvider = null)
     {
         const string description =
             "Add QR code generation: GET /api/v1/urls/{code}/qrcode returns a PNG QR code " +
@@ -63,7 +63,7 @@ public static class GreenfieldScenario
             [StageId.ReleaseReadiness] = new ReleaseReadinessAgent(changeTicket: "JIRA-4521"),
         };
 
-        var approvals = new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
+        var approvals = approvalProvider ?? new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
         {
             [StageId.Requirements] = new(ApprovalDecision.Approved, "eng-lead", "Clear, well-scoped requirement."),
             [StageId.Architecture] = new(ApprovalDecision.Approved, "eng-lead", "Design is minimal and reuses existing caching."),

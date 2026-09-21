@@ -1,19 +1,21 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using UrlShortener.Api.Orchestration;
 using UrlShortener.Orchestrator.Engine;
+using UrlShortener.Orchestrator.Governance;
 using UrlShortener.Orchestrator.Scenarios;
 
 namespace UrlShortener.Api.Endpoints;
 
 /// <summary>
 /// HTTP access to the orchestrator. GET /runs and GET /runs/{scenario} serve the
-/// checked-in sample-run artifacts (the three required scenarios, run once at
-/// authoring time). POST /runs/{scenario} starts a fresh live run of that same
-/// scenario in-process, reusing the exact GreenfieldScenario/BrownfieldScenario/
-/// AmbiguousScenario.Build() + ScenarioRunner.RunAsync() code path the console
-/// app uses, and GET /runs/{scenario}/live/{runId} polls it. Live run state is
-/// an in-memory dictionary - prototype scope, resets on process restart, same
-/// honest limitation any in-memory run tracker has. See docs/SPEC.md 2.5.
+/// checked-in sample-run artifacts. POST /runs/{scenario} starts a fresh live run
+/// of that scenario in-process, reusing the exact Build() + ScenarioRunner.RunAsync()
+/// code path the console app uses, but with an HttpApprovalProvider in place of the
+/// scripted one, so any approval-gated stage really blocks on a human decision.
+/// GET .../live/{runId} polls it (and reports a pending approval, if any), and
+/// POST .../live/{runId}/approve|reject resolves it. In-memory run state - prototype
+/// scope, resets on process restart. See docs/SPEC.md 2.5.
 /// </summary>
 public static class OrchestratorEndpoints
 {
@@ -67,7 +69,8 @@ public static class OrchestratorEndpoints
 
             var runId = Guid.NewGuid().ToString("N")[..8];
             var outputDir = Path.Combine(FindOrCreateLiveRunsRoot(), $"{normalized}-{runId}");
-            var state = new LiveRunState(normalized, outputDir);
+            var approvalProvider = new HttpApprovalProvider();
+            var state = new LiveRunState(normalized, outputDir, approvalProvider);
             LiveRuns[runId] = state;
 
             _ = Task.Run(async () =>
@@ -82,15 +85,15 @@ public static class OrchestratorEndpoints
                     switch (normalized)
                     {
                         case "greenfield":
-                            (engine, context, description) = GreenfieldScenario.Build();
+                            (engine, context, description) = GreenfieldScenario.Build(approvalProvider);
                             name = "Greenfield";
                             break;
                         case "brownfield":
-                            (engine, context, description) = BrownfieldScenario.Build();
+                            (engine, context, description) = BrownfieldScenario.Build(approvalProvider);
                             name = "Brownfield";
                             break;
                         default:
-                            (engine, context, description) = AmbiguousScenario.Build();
+                            (engine, context, description) = AmbiguousScenario.Build(approvalProvider);
                             name = "Ambiguous";
                             break;
                     }
@@ -120,14 +123,46 @@ public static class OrchestratorEndpoints
 
             if (state.Status != "Completed")
             {
-                return Results.Ok(new { runId, state.Scenario, state.Status, state.Error });
+                return Results.Ok(new
+                {
+                    runId,
+                    state.Scenario,
+                    state.Status,
+                    state.Error,
+                    pendingApproval = state.ApprovalProvider.CurrentPending
+                });
             }
 
             var artifacts = ReadScenarioArtifacts(state.OutputDir, state.Scenario);
             return Results.Ok(new { runId, state.Scenario, state.Status, state.FinalPipelineStatus, artifacts });
         });
 
+        group.MapPost("/runs/{scenario}/live/{runId}/approve", (string scenario, string runId, ApprovalDecisionRequest? body) =>
+            ResolveApproval(scenario, runId, ApprovalDecision.Approved, body));
+
+        group.MapPost("/runs/{scenario}/live/{runId}/reject", (string scenario, string runId, ApprovalDecisionRequest? body) =>
+            ResolveApproval(scenario, runId, ApprovalDecision.Rejected, body));
+
         return app;
+    }
+
+    private static IResult ResolveApproval(string scenario, string runId, ApprovalDecision decision, ApprovalDecisionRequest? body)
+    {
+        var normalized = scenario.ToLowerInvariant();
+        if (!LiveRuns.TryGetValue(runId, out var state) || state.Scenario != normalized)
+        {
+            return Results.NotFound();
+        }
+
+        var respondedBy = string.IsNullOrWhiteSpace(body?.RespondedBy) ? "http-caller" : body!.RespondedBy!;
+        var rationale = string.IsNullOrWhiteSpace(body?.Rationale)
+            ? (decision == ApprovalDecision.Approved ? "Approved via HTTP." : "Rejected via HTTP.")
+            : body!.Rationale!;
+
+        var resolved = state.ApprovalProvider.TryResolve(decision, respondedBy, rationale);
+        return resolved
+            ? Results.Ok(new { runId, decision = decision.ToString(), resolved = true })
+            : Results.Conflict(new { runId, resolved = false, message = "No approval is currently pending for this run." });
     }
 
     private static object? ReadScenarioArtifacts(string dir, string slug)
@@ -179,12 +214,15 @@ public static class OrchestratorEndpoints
         return null;
     }
 
-    private sealed class LiveRunState(string scenario, string outputDir)
+    private sealed class LiveRunState(string scenario, string outputDir, HttpApprovalProvider approvalProvider)
     {
         public string Scenario { get; } = scenario;
         public string OutputDir { get; } = outputDir;
+        public HttpApprovalProvider ApprovalProvider { get; } = approvalProvider;
         public string Status { get; set; } = "Running";
         public string? FinalPipelineStatus { get; set; }
         public string? Error { get; set; }
     }
 }
+
+public sealed record ApprovalDecisionRequest(string? RespondedBy, string? Rationale);

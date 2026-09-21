@@ -17,7 +17,7 @@ namespace UrlShortener.Orchestrator.Scenarios;
 /// </summary>
 public static class AmbiguousScenario
 {
-    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build()
+    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build(IApprovalProvider? approvalProvider = null)
     {
         const string description =
             "\"Make the analytics better.\" - an underspecified ask with no acceptance criteria, " +
@@ -60,7 +60,7 @@ public static class AmbiguousScenario
             [StageId.ReleaseReadiness] = new ReleaseReadinessAgent(changeTicket: "JIRA-4610"),
         };
 
-        var approvals = new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
+        var approvals = approvalProvider ?? new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
         {
             [StageId.Requirements] = new(
                 ApprovalDecision.Approved,

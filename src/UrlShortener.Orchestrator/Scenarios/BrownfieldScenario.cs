@@ -15,7 +15,7 @@ namespace UrlShortener.Orchestrator.Scenarios;
 /// </summary>
 public static class BrownfieldScenario
 {
-    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build()
+    public static (OrchestrationEngine Engine, PipelineExecutionContext Context, string Description) Build(IApprovalProvider? approvalProvider = null)
     {
         const string description =
             "Fix: ResolveShortUrlQuery double-records a click when the in-memory cache entry is " +
@@ -77,7 +77,7 @@ public static class BrownfieldScenario
             [StageId.ReleaseReadiness] = new ReleaseReadinessAgent(changeTicket: "JIRA-4588"),
         };
 
-        var approvals = new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
+        var approvals = approvalProvider ?? new ScriptedApprovalProvider(new Dictionary<StageId, ApprovalResponse>
         {
             [StageId.Requirements] = new(ApprovalDecision.Approved, "eng-lead", "Bug confirmed in production analytics; scope is a targeted fix, approved."),
             [StageId.Architecture] = new(ApprovalDecision.Approved, "eng-lead", "Request-coalescing is the right level of complexity for a single-instance deployment."),
