@@ -98,7 +98,8 @@ public static class OrchestratorEndpoints
                             break;
                     }
 
-                    var report = await ScenarioRunner.RunAsync(name, description, engine, context, outputDir);
+                    state.Engine = engine;
+            var report = await ScenarioRunner.RunAsync(name, description, engine, context, outputDir);
                     state.Status = "Completed";
                     state.FinalPipelineStatus = report.Result.Status.ToString();
                 }
@@ -145,6 +146,34 @@ public static class OrchestratorEndpoints
 
         group.MapPost("/runs/{scenario}/live/{runId}/revise", (string scenario, string runId, ApprovalDecisionRequest? body) =>
             ResolveApproval(scenario, runId, ApprovalDecision.Deferred, body));
+
+        group.MapGet("/runs/{scenario}/live/{runId}/metrics", (string scenario, string runId) =>
+        {
+            var normalized = scenario.ToLowerInvariant();
+            if (!LiveRuns.TryGetValue(runId, out var state) || state.Scenario != normalized)
+            {
+                return Results.NotFound();
+            }
+            if (state.Engine is null)
+            {
+                return Results.Conflict(new { runId, message = "Run has not started executing yet." });
+            }
+            return Results.Ok(state.Engine.Metrics.Snapshot());
+        });
+
+        group.MapGet("/runs/{scenario}/live/{runId}/audit-trail", (string scenario, string runId) =>
+        {
+            var normalized = scenario.ToLowerInvariant();
+            if (!LiveRuns.TryGetValue(runId, out var state) || state.Scenario != normalized)
+            {
+                return Results.NotFound();
+            }
+            if (state.Engine is null)
+            {
+                return Results.Conflict(new { runId, message = "Run has not started executing yet." });
+            }
+            return Results.Ok(state.Engine.AuditLog.Events);
+        });
 
         return app;
     }
@@ -230,6 +259,7 @@ public static class OrchestratorEndpoints
         public string Status { get; set; } = "Running";
         public string? FinalPipelineStatus { get; set; }
         public string? Error { get; set; }
+        public OrchestrationEngine? Engine { get; set; }
     }
 }
 

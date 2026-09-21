@@ -64,6 +64,9 @@ public sealed class OrchestrationEngine
             graph.Nodes.Keys.ToDictionary(id => id, _ => new StageRuntimeState()));
     }
 
+    public MetricsCollector Metrics => _metrics;
+    public AuditLog AuditLog => _auditLog;
+
     public async Task<PipelineResult> RunAsync(PipelineExecutionContext context, CancellationToken ct = default)
     {
         _auditLog.Record(AuditEventType.PipelineStarted, null, "engine", "Pipeline run started.");

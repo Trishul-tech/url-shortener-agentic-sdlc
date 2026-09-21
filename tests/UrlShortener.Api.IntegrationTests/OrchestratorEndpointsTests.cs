@@ -180,6 +180,41 @@ public class OrchestratorEndpointsTests : IClassFixture<CustomWebApplicationFact
         approve.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
+    [Fact]
+    public async Task PostRun_ThenMetricsAndAuditTrail_ReturnLiveData()
+    {
+        var postResponse = await _client.PostAsync("/api/v1/orchestrator/runs/greenfield", null);
+        postResponse.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var postBody = await ReadJsonAsync(postResponse);
+        var runId = postBody.GetProperty("runId").GetString()!;
+
+        await PollUntilAsync("greenfield", runId, HasPendingApproval);
+
+        var metrics = await _client.GetAsync($"/api/v1/orchestrator/runs/greenfield/live/{runId}/metrics");
+        metrics.StatusCode.Should().Be(HttpStatusCode.OK);
+        var metricsBody = await ReadJsonAsync(metrics);
+        metricsBody.GetProperty("stagesAttempted").GetInt32().Should().BeGreaterThanOrEqualTo(1);
+
+        var auditTrail = await _client.GetAsync($"/api/v1/orchestrator/runs/greenfield/live/{runId}/audit-trail");
+        auditTrail.StatusCode.Should().Be(HttpStatusCode.OK);
+        var auditBody = await ReadJsonAsync(auditTrail);
+        auditBody.GetArrayLength().Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Metrics_UnknownRunId_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync("/api/v1/orchestrator/runs/greenfield/live/does-not-exist/metrics");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task AuditTrail_UnknownRunId_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync("/api/v1/orchestrator/runs/greenfield/live/does-not-exist/audit-trail");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     private async Task<JsonElement> PollUntilAsync(string scenario, string runId, Func<JsonElement, bool> condition)
     {
         for (var i = 0; i < 50; i++)
