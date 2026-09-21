@@ -7,3 +7,6 @@ obj/
 .vscode/
 *.user
 test-output.txt
+
+# Ephemeral output from POST /api/v1/orchestrator/runs/{scenario} (live runs started over HTTP)
+artifacts/live-runs/

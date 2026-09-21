@@ -29,14 +29,16 @@ this document states *what* is built, precisely, as a reference.
 
 Full request/response contracts: `src/UrlShortener.Api/Contracts`, and live via Swagger (`/swagger`, Development only).
 
-### 2.5 Orchestrator run inspection (read-only)
+### 2.5 Orchestrator run control and inspection
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/v1/orchestrator/runs` | None | List which scenario runs have artifacts available |
-| `GET` | `/api/v1/orchestrator/runs/{scenario}` | None | Metrics, stage states, and decision lineage for that scenario's last run |
+| `GET` | `/api/v1/orchestrator/runs` | None | List which scenario runs have checked-in sample artifacts |
+| `GET` | `/api/v1/orchestrator/runs/{scenario}` | None | Metrics, stage states, and decision lineage from the checked-in sample run |
+| `POST` | `/api/v1/orchestrator/runs/{scenario}` | None | Start a fresh live run of that scenario in-process; returns `202` with a `runId` immediately |
+| `GET` | `/api/v1/orchestrator/runs/{scenario}/live/{runId}` | None | Poll a live run; returns `Running`/`Completed`/`Failed` and, once complete, the same metrics/stage-states/decision-lineage shape |
 
-Serves the `artifacts/sample-runs/` files that `MetricsCollector`, `AuditLog`, and `DecisionLineage` already write per scenario. This is read-only inspection of completed runs, not a live control API - see `docs/testing-limitations-tradeoffs.md` for what a real run-control API would still need (starting a run over HTTP, live status polling, approve/reject over HTTP).
+`POST` reuses the exact code path the console app uses - `GreenfieldScenario`/`BrownfieldScenario`/`AmbiguousScenario.Build()` plus `ScenarioRunner.RunAsync()` - executed in a background task against a real `OrchestrationEngine`, `DependencyGraph`, and the scripted approval provider, writing fresh artifacts to `artifacts/live-runs/{scenario}-{runId}/` (gitignored, ephemeral). `GET .../runs/{scenario}` still serves the checked-in `artifacts/sample-runs/` snapshot for the three required scenarios. Live-run tracking is an in-memory dictionary scoped to the running process - it resets on restart, and approvals are still the scripted/deterministic provider rather than an interactive approve/reject-over-HTTP flow. See `docs/testing-limitations-tradeoffs.md` for that scope.
 
 ### 2.2 Validation rules (Create)
 
